@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId && request.auth.token.email_verified == true;
+    }
+
+    function isValidDateString(s) {
+      return s is string && s.size() == 10 && s.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isValidDailyQuestProgress(q) {
+      return q is map
+        && q.keys().hasAll(['hangulOrVocab', 'grammarOrListening', 'aiTutor', 'quiz'])
+        && q.keys().hasOnly(['hangulOrVocab', 'grammarOrListening', 'aiTutor', 'quiz'])
+        && q.hangulOrVocab is int && q.hangulOrVocab >= 0 && q.hangulOrVocab <= 1000
+        && q.grammarOrListening is int && q.grammarOrListening >= 0 && q.grammarOrListening <= 1000
+        && q.aiTutor is int && q.aiTutor >= 0 && q.aiTutor <= 1000
+        && q.quiz is int && q.quiz >= 0 && q.quiz <= 1000;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'email', 'photoURL', 'level', 'xp', 'streak',
+          'lastActiveDate', 'uiLanguage', 'completedLessons', 'unlockedAchievements',
+          'dailyQuestDate', 'dailyQuestProgress', 'placementScore', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL', 'level', 'xp', 'streak',
+          'lastActiveDate', 'uiLanguage', 'completedLessons', 'unlockedAchievements',
+          'dailyQuestDate', 'dailyQuestProgress', 'placementScore', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == userId && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 150
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.level in ['A1', 'A2', 'B1', 'B2', 'C1']
+        && data.xp is int && data.xp >= 0 && data.xp <= 10000000
+        && data.streak is int && data.streak >= 0 && data.streak <= 36500
+        && isValidDateString(data.lastActiveDate)
+        && data.uiLanguage in ['ru', 'en', 'tg', 'ko']
+        && data.completedLessons is list && data.completedLessons.size() <= 100
+        && (data.completedLessons.size() == 0 || (data.completedLessons[0] is string && data.completedLessons[0].size() <= 64))
+        && data.unlockedAchievements is list && data.unlockedAchievements.size() <= 30
+        && (data.unlockedAchievements.size() == 0 || (data.unlockedAchievements[0] is string && data.unlockedAchievements[0].size() <= 64))
+        && isValidDateString(data.dailyQuestDate)
+        && isValidDailyQuestProgress(data.dailyQuestProgress)
+        && data.placementScore is int && data.placementScore >= 0 && data.placementScore <= 10
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDictionaryEntry(data, userId, entryId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'korean', 'transcription', 'translation',
+          'category', 'example', 'mastered', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'korean', 'transcription', 'translation',
+          'category', 'example', 'mastered', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == entryId
+        && data.userId is string && data.userId == userId && data.userId == request.auth.uid
+        && data.korean is string && data.korean.size() >= 1 && data.korean.size() <= 120
+        && data.transcription is string && data.transcription.size() <= 160
+        && data.translation is string && data.translation.size() >= 1 && data.translation.size() <= 200
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 60
+        && data.example is string && data.example.size() <= 300
+        && data.mastered is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection: /users/{userId} ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isVerifiedOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isVerifiedOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerifiedOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'level', 'xp', 'streak',
+          'lastActiveDate', 'uiLanguage', 'completedLessons',
+          'unlockedAchievements', 'dailyQuestDate', 'dailyQuestProgress',
+          'placementScore', 'updatedAt'
+        ]);
+      allow delete: if false;
+
+      // --- Subcollection: /users/{userId}/dictionary/{entryId} ---
+      match /dictionary/{entryId} {
+        allow get: if isValidId(userId) && isValidId(entryId) && isVerifiedOwner(userId);
+        allow list: if isValidId(userId) && isVerifiedOwner(userId) && resource.data.userId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(entryId)
+          && isVerifiedOwner(userId)
+          && isValidDictionaryEntry(incoming(), userId, entryId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(entryId)
+          && isVerifiedOwner(userId)
+          && isValidDictionaryEntry(incoming(), userId, entryId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'korean', 'transcription', 'translation', 'category', 'example', 'mastered', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(entryId) && isVerifiedOwner(userId);
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Korean Journey — 한국어",
+  "description": "Интерактивная платформа для изучения корейского языка с нуля до TOPIK II: хангыль, грамматика, словарь, диалоги, аудирование, культура и ИИ-преподаватель.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

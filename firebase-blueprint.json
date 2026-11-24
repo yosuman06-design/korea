@@ -1,0 +1,198 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Learner account profile, Korean proficiency level, XP, streak, daily quests, and unlocked achievements.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID matching the document ID."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Learner display name."
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 150,
+          "description": "Learner verified email address (PII, owner-only read)."
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Avatar URL."
+        },
+        "level": {
+          "type": "string",
+          "enum": ["A1", "A2", "B1", "B2", "C1"],
+          "description": "Current assessed Korean level."
+        },
+        "xp": {
+          "type": "integer",
+          "description": "Total earned experience points."
+        },
+        "streak": {
+          "type": "integer",
+          "description": "Consecutive active learning days."
+        },
+        "lastActiveDate": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Last active calendar date in YYYY-MM-DD."
+        },
+        "uiLanguage": {
+          "type": "string",
+          "enum": ["ru", "en", "tg", "ko"],
+          "description": "Preferred UI language."
+        },
+        "completedLessons": {
+          "type": "array",
+          "description": "IDs of completed lessons/modules (bounded to 100)."
+        },
+        "unlockedAchievements": {
+          "type": "array",
+          "description": "IDs of unlocked achievements (bounded to 30)."
+        },
+        "dailyQuestDate": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Date of tracked daily quests."
+        },
+        "dailyQuestProgress": {
+          "type": "object",
+          "description": "Counters for daily quest completion."
+        },
+        "placementScore": {
+          "type": "integer",
+          "description": "Latest placement test score (0-10)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of profile creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "photoURL",
+        "level",
+        "xp",
+        "streak",
+        "lastActiveDate",
+        "uiLanguage",
+        "completedLessons",
+        "unlockedAchievements",
+        "dailyQuestDate",
+        "dailyQuestProgress",
+        "placementScore",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DictionaryEntry": {
+      "title": "DictionaryEntry",
+      "description": "Personal saved Korean vocabulary word in a learner's private dictionary.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Document ID of the dictionary entry."
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "korean": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Korean word or phrase in Hangul."
+        },
+        "transcription": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Phonetic romanization or transcription."
+        },
+        "translation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Translation in user language."
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Topic or category name."
+        },
+        "example": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional example sentence in Korean."
+        },
+        "mastered": {
+          "type": "boolean",
+          "description": "Whether the learner marked this word as mastered."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when saved."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "korean",
+        "transcription",
+        "translation",
+        "category",
+        "example",
+        "mastered",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Private learner profile and learning progress document."
+    },
+    "/users/{userId}/dictionary/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/DictionaryEntry"
+      },
+      "description": "Subcollection of personal Korean vocabulary words owned by the user."
+    }
+  }
+}
